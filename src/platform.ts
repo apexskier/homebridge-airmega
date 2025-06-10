@@ -183,9 +183,11 @@ export class CowayHomebridgePlatform implements DynamicPlatformPlugin {
     loginRequestBody.append("rememberMe", "on");
 
     this.accessToken = "";
+    const loginRequestBodyRaw = loginRequestBody.toString();
+    // need to use search params for proper encoding for some reason
     let loginResponse = await fetch(loginUrl, {
       method: loginMethod,
-      body: loginRequestBody.toString(),
+      body: loginRequestBodyRaw,
       redirect: "manual",
       headers: {
         Cookie: openIDCookies ?? "",
