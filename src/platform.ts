@@ -174,6 +174,7 @@ export class CowayHomebridgePlatform implements DynamicPlatformPlugin {
       .map((cookieStr) => cookieStr.split(";")[0])
       .join("; ");
 
+    // need to use search params for proper encoding for some reason
     const loginRequestBody = new URLSearchParams();
     loginRequestBody.append("clientName", "IOCARE");
     loginRequestBody.append("termAgreementStatus", "");
@@ -183,11 +184,9 @@ export class CowayHomebridgePlatform implements DynamicPlatformPlugin {
     loginRequestBody.append("rememberMe", "on");
 
     this.accessToken = "";
-    const loginRequestBodyRaw = loginRequestBody.toString();
-    // need to use search params for proper encoding for some reason
     let loginResponse = await fetch(loginUrl, {
       method: loginMethod,
-      body: loginRequestBodyRaw,
+      body: loginRequestBody.toString(),
       redirect: "manual",
       headers: {
         Cookie: openIDCookies ?? "",
@@ -212,20 +211,21 @@ export class CowayHomebridgePlatform implements DynamicPlatformPlugin {
         this.log.info("password change form found, skipping it");
 
         // password reset reminder, submit "not now"
-        const changePasswordURL = new URL(
-          "https://id.coway.com/auth/realms/cw-account/login-actions/authenticate",
-        );
-        // changePasswordURL.searchParams.append("session_code", "");
-        // changePasswordURL.searchParams.append("execution", "code");
-        // changePasswordURL.searchParams.append("client_id", "cwid-prd-iocare-20240327");
-        // changePasswordURL.searchParams.append("tap_id", "");
+        const changePasswordURL = passwordChangeForm.getAttribute("action");
+        if (!changePasswordURL) {
+          this.log.error("missing change password url", body);
+          throw new this.api.hap.HapStatusError(
+            this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE,
+          );
+        }
 
+        // need to use search params for proper encoding for some reason
         const changePasswordBody = new URLSearchParams();
         changePasswordBody.append("cmd", "change_after_30days"); // or, "change_next_time"
-        // skipPasswordChangeBody.append("checkPasswordNeededYn", "Y");
-        // skipPasswordChangeBody.append("current_password", "");
-        // skipPasswordChangeBody.append("new_password", "");
-        // skipPasswordChangeBody.append("new_password_confirm", "");
+        // changePasswordBody.append("checkPasswordNeededYn", "Y");
+        // changePasswordBody.append("current_password", "");
+        // changePasswordBody.append("new_password", "");
+        // changePasswordBody.append("new_password_confirm", "");
 
         this.accessToken = "";
         loginResponse = await fetch(changePasswordURL, {
