@@ -253,12 +253,17 @@ export class CowayPlatformAccessory {
           } else {
             fan = Fan.Low;
           }
-          return this.controlDevice([
+          await this.controlDevice([
             {
               funcId: FunctionId.Fan,
               cmdVal: fan,
             },
           ]);
+          // setting fan manually sets to manual mode
+          airPurifierService.updateCharacteristic(
+            this.platform.Characteristic.TargetAirPurifierState,
+            this.platform.Characteristic.TargetAirPurifierState.MANUAL,
+          );
         }),
       );
 
