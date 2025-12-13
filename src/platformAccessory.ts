@@ -202,11 +202,12 @@ export class CowayPlatformAccessory {
       .setValue(this.accessory.context.device.dvcNick);
     airPurifierService
       .getCharacteristic(this.platform.Characteristic.Active)
-      .onGet(() =>
-        this.guardedOnlineData().prodStatus.power === Power.On
-          ? this.platform.Characteristic.Active.ACTIVE
-          : this.platform.Characteristic.Active.INACTIVE,
-      )
+      .onGet(() => {
+        this.platform.log.debug(`getCharacteristic.Active`, this.guardedOnlineData().prodStatus.power);
+        return this.guardedOnlineData().prodStatus.power === Power.On
+            ? this.platform.Characteristic.Active.ACTIVE
+            : this.platform.Characteristic.Active.INACTIVE
+      })
       .onSet(
         logSet("setting power", async (value) =>
           this.controlDevice([
@@ -223,6 +224,7 @@ export class CowayPlatformAccessory {
     airPurifierService
       .getCharacteristic(this.platform.Characteristic.CurrentAirPurifierState)
       .onGet(() => {
+        this.platform.log.debug(`getCharacteristic.CurrentAirPurifierState`, this.guardedOnlineData().prodStatus);
         const prodStatus = this.guardedOnlineData().prodStatus;
         if (prodStatus.prodMode === Mode.Off) {
           return this.platform.Characteristic.CurrentAirPurifierState.INACTIVE;
@@ -236,6 +238,7 @@ export class CowayPlatformAccessory {
     airPurifierService
       .getCharacteristic(this.platform.Characteristic.TargetAirPurifierState)
       .onGet(() => {
+        this.platform.log.debug(`getCharacteristic.TargetAirPurifierState`, this.guardedOnlineData().prodStatus.prodMode);
         switch (this.guardedOnlineData().prodStatus.prodMode) {
           case Mode.Smart:
           case Mode.SmartEco:
@@ -265,6 +268,7 @@ export class CowayPlatformAccessory {
     airPurifierService
       .getCharacteristic(this.platform.Characteristic.RotationSpeed)
       .onGet(() => {
+        this.platform.log.debug(`getCharacteristic.RotationSpeed`, this.guardedOnlineData().prodStatus.airVolume);
         const airVolume = this.guardedOnlineData().prodStatus.airVolume;
         switch (airVolume) {
           case Fan.Low:
@@ -319,6 +323,7 @@ export class CowayPlatformAccessory {
     indoorAirQualityService
       .getCharacteristic(this.platform.Characteristic.AirQuality)
       .onGet(() => {
+        this.platform.log.debug(`getCharacteristic.AirQuality`, this.guardedOnlineData().IAQ);
         const airQuality = this.guardedOnlineData().IAQ.inairquality;
         switch (airQuality) {
           case AirQuality.Excellent:
@@ -542,7 +547,7 @@ export class CowayPlatformAccessory {
     const { data } = (await (
       await this.platform.fetch(url)
     ).json()) as Response<DeviceData>;
-    this.platform.log.debug("updated status");
+    this.platform.log.debug("updated status", data);
     this.data = data;
   }
 
