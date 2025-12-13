@@ -13,6 +13,14 @@
         "USERNAME": "",
         "PASSWORD": ""
       }
+    },
+    {
+      "name": "Homebridge Debug",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["homebridge@latest", "-D", "-I"],
+      "console": "integratedTerminal"
     }
   ]
 }

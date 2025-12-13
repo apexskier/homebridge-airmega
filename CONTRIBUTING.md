@@ -1,12 +1,12 @@
 Link plugin globally to get local homebridge to pick it up.
 
-```
-npm run link
+```bash
+npm link
 ```
 
 Run homebridge locally with your local plugin and logs.
 
-```
+```bash
 npm run build && DEBUG=*apexskier* homebridge -D -I
 ```
 
