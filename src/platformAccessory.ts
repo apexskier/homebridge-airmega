@@ -70,10 +70,10 @@ enum Mode {
 }
 
 enum AirQuality {
-  Excellent = "1",
-  Good = "2",
-  Fair = "3",
-  Inferior = "4",
+  Good = "1",
+  Moderate = "2",
+  Unhealthy = "3",
+  VeryUnhealthy = "4",
 }
 
 interface Response<Data> {
@@ -433,14 +433,14 @@ export class CowayPlatformAccessory {
     );
     const airQuality = this.guardedOnlineData().IAQ.inairquality;
     switch (airQuality) {
-      case AirQuality.Excellent:
-        return this.platform.Characteristic.AirQuality.EXCELLENT;
       case AirQuality.Good:
+        return this.platform.Characteristic.AirQuality.EXCELLENT;
+      case AirQuality.Moderate:
         return this.platform.Characteristic.AirQuality.GOOD;
-      case AirQuality.Fair:
+      case AirQuality.Unhealthy:
         return this.platform.Characteristic.AirQuality.FAIR;
-      case AirQuality.Inferior:
-        return this.platform.Characteristic.AirQuality.INFERIOR;
+      case AirQuality.VeryUnhealthy:
+        return this.platform.Characteristic.AirQuality.POOR;
       case "":
         this.platform.log.debug(`no air quality, falling back to pm`);
         break;
@@ -637,6 +637,9 @@ export class CowayPlatformAccessory {
     incoming: Array<FunctionI<FunctionId>>, // eslint-disable-line max-len
   ): Array<FunctionI<FunctionId>> {
     if (this.containsSmartMode(incoming)) {
+      this.platform.log.debug(
+        "'Smart Mode' command received. Ignoring other input.",
+      );
       return incoming.filter(
         (command) =>
           command.funcId === FunctionId.Mode &&
@@ -645,6 +648,7 @@ export class CowayPlatformAccessory {
     }
 
     if (this.containsOffCommand(incoming)) {
+      this.platform.log.debug("'Off' command received. Ignoring other input.");
       return incoming.filter((command) =>
         this.isOffCommand(command.funcId, command.cmdVal as Mode | Power),
       );
