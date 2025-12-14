@@ -252,18 +252,6 @@ export class CowayPlatformAccessory {
             throw new Error(`unexpected value ${value}`);
           }
 
-          if (value === 0) {
-            // special case to allow setting mode from HomeKit automations
-            // When creating an automation and setting mode to "Auto" a fan value will be passed and will override the mode.
-            // Passing value as 0 with mode "Auto" switches to Smart mode as desired.
-            return this.controlDevice([
-              {
-                funcId: FunctionId.Mode,
-                cmdVal: Mode.Smart,
-              },
-            ]);
-          }
-
           let fan: Fan;
           if (value > 66) {
             fan = Fan.High;
