@@ -2,6 +2,8 @@ import { CharacteristicValue, PlatformAccessory } from "homebridge";
 
 import { CowayHomebridgePlatform as CowayHomebridgePlatform } from "./platform";
 
+export const COMMAND_COALESCE_WINDOW_MS = 500;
+
 export interface AccessoryContext {
   device: {
     barcode: string;
@@ -165,6 +167,11 @@ interface DeviceData {
 
 export class CowayPlatformAccessory {
   data: null | DeviceData = null;
+  private pendingCommands: Array<FunctionI<FunctionId>> = [];
+  private coalesceTimer: NodeJS.Timeout | null = null;
+  private pendingSendPromise: Promise<void> | null = null;
+  private pendingSendResolve: (() => void) | null = null;
+  private pendingSendReject: ((reason?: unknown) => void) | null = null;
 
   constructor(
     private readonly platform: CowayHomebridgePlatform,
@@ -545,6 +552,42 @@ export class CowayPlatformAccessory {
   }
 
   private async controlDevice(commands: Array<FunctionI<FunctionId>>) {
+    this.pendingCommands = this.coalesceCommands(this.pendingCommands, commands);
+
+    if (this.coalesceTimer) {
+      clearTimeout(this.coalesceTimer);
+      this.coalesceTimer = null;
+    }
+
+    if (!this.pendingSendPromise) {
+      this.pendingSendPromise = new Promise((resolve, reject) => {
+        this.pendingSendResolve = resolve;
+        this.pendingSendReject = reject;
+      });
+    }
+
+    this.coalesceTimer = setTimeout(() => {
+      const coalescedCommands = this.pendingCommands;
+      this.pendingCommands = [];
+      this.coalesceTimer = null;
+
+      this.sendCommands(coalescedCommands)
+        .then(() => this.pendingSendResolve?.())
+        .catch((err) => {
+          this.platform.log.error("control device error", err);
+          this.pendingSendReject?.(err);
+        })
+        .finally(() => {
+          this.pendingSendPromise = null;
+          this.pendingSendResolve = null;
+          this.pendingSendReject = null;
+        });
+    }, COMMAND_COALESCE_WINDOW_MS);
+
+    return this.pendingSendPromise;
+  }
+
+  private async sendCommands(commands: Array<FunctionI<FunctionId>>) {
     if (!commands[FunctionId.Light]) {
       const comDV = await this.comDevice();
       commands.push({
@@ -570,6 +613,62 @@ export class CowayPlatformAccessory {
       },
     );
     await this.updateStatus();
+  }
+
+  private coalesceCommands(
+    current: Array<FunctionI<FunctionId>>, // eslint-disable-line max-len
+    incoming: Array<FunctionI<FunctionId>>, // eslint-disable-line max-len
+  ): Array<FunctionI<FunctionId>> {
+    if (this.containsSmartMode(incoming)) {
+      return incoming.filter((command) =>
+        command.funcId === FunctionId.Mode &&
+        this.isSmartMode(command.cmdVal as Mode),
+      );
+    }
+
+    if (this.containsOffCommand(incoming)) {
+      return incoming.filter((command) =>
+        this.isOffCommand(command.funcId, command.cmdVal as Mode | Power),
+      );
+    }
+
+    if (this.containsSmartMode(current)) {
+      return current;
+    }
+
+    const mergedCommands = new Map<FunctionId, FunctionValue[FunctionId]>();
+    for (const command of current) {
+      mergedCommands.set(command.funcId, command.cmdVal as FunctionValue[FunctionId]);
+    }
+    for (const command of incoming) {
+      mergedCommands.set(command.funcId, command.cmdVal as FunctionValue[FunctionId]);
+    }
+
+    return Array.from(mergedCommands.entries()).map(([funcId, cmdVal]) => ({
+      funcId,
+      cmdVal,
+    }));
+  }
+
+  private isSmartMode(mode: Mode) {
+    return mode === Mode.Smart || mode === Mode.SmartEco;
+  }
+
+  private containsSmartMode(commands: Array<FunctionI<FunctionId>>) {
+    return commands.some(
+      (command) => command.funcId === FunctionId.Mode && this.isSmartMode(command.cmdVal as Mode),
+    );
+  }
+
+  private isOffCommand(funcId: FunctionId, value: Mode | Power) {
+    return (
+      (funcId === FunctionId.Power && value === Power.Off) ||
+      (funcId === FunctionId.Mode && value === Mode.Off)
+    );
+  }
+
+  private containsOffCommand(commands: Array<FunctionI<FunctionId>>) {
+    return commands.some((command) => this.isOffCommand(command.funcId, command.cmdVal as Mode | Power));
   }
 
   private poll() {
