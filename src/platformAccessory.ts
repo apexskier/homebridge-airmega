@@ -633,25 +633,25 @@ export class CowayPlatformAccessory {
     current: Array<FunctionI<FunctionId>>,
     incoming: Array<FunctionI<FunctionId>>,
   ): Array<FunctionI<FunctionId>> {
-    if (this.containsSmartMode(incoming)) {
+    if (containsSmartMode(incoming)) {
       this.platform.log.debug(
         "'Smart Mode' command received. Ignoring other input.",
       );
       return incoming.filter(
         (command) =>
           command.funcId === FunctionId.Mode &&
-          this.isSmartMode(command.cmdVal as Mode),
+          isSmartMode(command.cmdVal as Mode),
       );
     }
 
-    if (this.containsOffCommand(incoming)) {
+    if (containsOffCommand(incoming)) {
       this.platform.log.debug("'Off' command received. Ignoring other input.");
       return incoming.filter((command) =>
-        this.isOffCommand(command.funcId, command.cmdVal as Mode | Power),
+        isOffCommand(command.funcId, command.cmdVal as Mode | Power),
       );
     }
 
-    if (this.containsSmartMode(current)) {
+    if (containsSmartMode(current)) {
       return current;
     }
 
@@ -673,31 +673,6 @@ export class CowayPlatformAccessory {
       funcId,
       cmdVal,
     }));
-  }
-
-  private isSmartMode(mode: Mode) {
-    return mode === Mode.Smart || mode === Mode.SmartEco;
-  }
-
-  private containsSmartMode(commands: Array<FunctionI<FunctionId>>) {
-    return commands.some(
-      (command) =>
-        command.funcId === FunctionId.Mode &&
-        this.isSmartMode(command.cmdVal as Mode),
-    );
-  }
-
-  private isOffCommand(funcId: FunctionId, value: Mode | Power) {
-    return (
-      (funcId === FunctionId.Power && value === Power.Off) ||
-      (funcId === FunctionId.Mode && value === Mode.Off)
-    );
-  }
-
-  private containsOffCommand(commands: Array<FunctionI<FunctionId>>) {
-    return commands.some((command) =>
-      this.isOffCommand(command.funcId, command.cmdVal as Mode | Power),
-    );
   }
 
   private poll() {
@@ -747,4 +722,28 @@ export class CowayPlatformAccessory {
     }
     return this.data;
   }
+}
+
+function isSmartMode(mode: Mode) {
+  return mode === Mode.Smart || mode === Mode.SmartEco;
+}
+
+function containsSmartMode(commands: Array<FunctionI<FunctionId>>) {
+  return commands.some(
+    (command) =>
+      command.funcId === FunctionId.Mode && isSmartMode(command.cmdVal as Mode),
+  );
+}
+
+function isOffCommand(funcId: FunctionId, value: Mode | Power) {
+  return (
+    (funcId === FunctionId.Power && value === Power.Off) ||
+    (funcId === FunctionId.Mode && value === Mode.Off)
+  );
+}
+
+function containsOffCommand(commands: Array<FunctionI<FunctionId>>) {
+  return commands.some((command) =>
+    isOffCommand(command.funcId, command.cmdVal as Mode | Power),
+  );
 }
