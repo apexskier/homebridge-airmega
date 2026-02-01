@@ -185,7 +185,8 @@ export class CowayPlatformAccessory {
       .setCharacteristic(this.platform.Characteristic.Manufacturer, "Coway")
       .setCharacteristic(
         this.platform.Characteristic.FirmwareRevision,
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         require("../package.json").version,
       )
       .setCharacteristic(
