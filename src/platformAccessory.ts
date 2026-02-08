@@ -58,7 +58,7 @@ enum AirVolume {
   Two = "2",
   Three = "3",
   Rapid = "5",
-  // ??? = "9", // seen this once, not sure what it is
+  Nine = "9", // seen this, not sure what it is
   Off = "0", // also shows for sleep
   Unknown = "99",
 }
@@ -376,10 +376,6 @@ export class CowayPlatformAccessory {
     return parseInt(this.guardedOnlineData().IAQ.dustpm25, 10);
   };
   private getRotationSpeed = () => {
-    this.platform.log.debug(
-      `getCharacteristic.RotationSpeed`,
-      this.guardedOnlineData().prodStatus.airVolume,
-    );
     const airVolume = this.guardedOnlineData().prodStatus.airVolume;
     switch (airVolume) {
       case AirVolume.One:
@@ -390,6 +386,7 @@ export class CowayPlatformAccessory {
         return 75;
       case AirVolume.Rapid:
         return 100;
+      case AirVolume.Nine: // I have no idea what this actually means, setting it doesn't do anything, but it shows up from time to time. Putting it here to silence errors in the logs.
       case AirVolume.Off:
       case AirVolume.Unknown: // ? I think
         return 0;
@@ -398,10 +395,6 @@ export class CowayPlatformAccessory {
     }
   };
   private getTargetAirPurifierState = () => {
-    this.platform.log.debug(
-      `getCharacteristic.TargetAirPurifierState`,
-      this.guardedOnlineData().prodStatus.prodMode,
-    );
     switch (this.guardedOnlineData().prodStatus.prodMode) {
       case Mode.Smart:
       case Mode.SmartEco:
@@ -415,10 +408,6 @@ export class CowayPlatformAccessory {
     }
   };
   private getCurrentAirPurifierState = () => {
-    this.platform.log.debug(
-      `getCharacteristic.CurrentAirPurifierState`,
-      this.guardedOnlineData().prodStatus,
-    );
     const prodStatus = this.guardedOnlineData().prodStatus;
     if (prodStatus.prodMode === Mode.Off) {
       return this.platform.Characteristic.CurrentAirPurifierState.INACTIVE;
@@ -429,19 +418,11 @@ export class CowayPlatformAccessory {
     return this.platform.Characteristic.CurrentAirPurifierState.PURIFYING_AIR;
   };
   private getActive = () => {
-    this.platform.log.debug(
-      `getCharacteristic.Active`,
-      this.guardedOnlineData().prodStatus.power,
-    );
     return this.guardedOnlineData().prodStatus.power === Power.On
       ? this.platform.Characteristic.Active.ACTIVE
       : this.platform.Characteristic.Active.INACTIVE;
   };
   private getAirQuality = () => {
-    this.platform.log.debug(
-      `getCharacteristic.AirQuality`,
-      this.guardedOnlineData().IAQ,
-    );
     const airQuality = this.guardedOnlineData().IAQ.inairquality;
     switch (airQuality) {
       case AirQuality.Good:
@@ -582,33 +563,42 @@ export class CowayPlatformAccessory {
       commands,
     );
 
+    // clear old pending send, so those commands "finish" in the home UI
+    this.pendingSendResolve?.();
+    // cancel old command sending, those commands will be merged in this send
     clearTimeout(this.coalesceTimer);
 
-    if (!this.pendingSendPromise) {
-      this.pendingSendPromise = new Promise((resolve, reject) => {
-        this.pendingSendResolve = resolve;
-        this.pendingSendReject = reject;
-      });
-    }
+    this.pendingSendPromise = new Promise((resolve, reject) => {
+      this.pendingSendResolve = resolve;
+      this.pendingSendReject = reject;
+    });
 
     this.coalesceTimer = setTimeout(() => {
       const coalescedCommands = this.pendingCommands;
       this.pendingCommands = [];
 
       this.sendCommands(coalescedCommands)
-        .then(() => this.pendingSendResolve?.())
+        .then(() => {
+          this.platform.log.debug(
+            "successfully sent commands",
+            coalescedCommands,
+          );
+          this.pendingSendResolve?.();
+        })
         .catch((err) => {
           this.platform.log.error("control device error", err);
           this.pendingSendReject?.(err);
-        })
-        .finally(() => {
-          this.pendingSendPromise = null;
-          this.pendingSendResolve = null;
-          this.pendingSendReject = null;
         });
     }, COMMAND_COALESCE_WINDOW_MS);
 
-    return this.pendingSendPromise;
+    return this.pendingSendPromise
+      .then(() => {
+        this.platform.log.debug("commands completed", commands);
+      })
+      .catch((err) => {
+        this.platform.log.error("commands error", err);
+        throw err;
+      });
   }
 
   private async sendCommands(commands: Array<FunctionI<FunctionId>>) {
