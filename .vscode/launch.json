@@ -5,22 +5,13 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Launch file",
-      "type": "node",
-      "request": "launch",
-      "program": "${workspaceFolder}/index.js",
-      "env": {
-        "USERNAME": "",
-        "PASSWORD": ""
-      }
-    },
-    {
       "name": "Homebridge Debug",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["homebridge@latest", "-D", "-I"],
-      "console": "integratedTerminal"
+      "console": "integratedTerminal",
+      "preLaunchTask": "npm: build"
     }
   ]
 }
